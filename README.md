@@ -1,7 +1,7 @@
 RickRoll Wristband
 ==================
 
-[![](https://img.youtube.com/vi/d4qXFLblkhrk/0.jpg)](https://youtu.be/4qXFLblkhrk)
+[![](https://img.youtube.com/vi/4qXFLblkhrk/0.jpg)](https://youtu.be/4qXFLblkhrk)
 
 ## What is it?
 
