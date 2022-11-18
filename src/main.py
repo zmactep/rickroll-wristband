@@ -87,6 +87,7 @@ def on_charge():
     led.on()
     return True
 
+
 def on_uncharge():
     global led
 
@@ -124,8 +125,9 @@ def draw_time():
 
     tft.text(vga2_8x16, "%.2fV" % volt, 30, 126, st7789.GREEN if battery.is_charging() else st7789.WHITE)
 
+
 def run_rickroll():
-    global tft, touchpad
+    global tft, touchpad, last_time
 
     channels = [10]
     tft.fill(st7789.BLACK)
@@ -135,6 +137,8 @@ def run_rickroll():
     tft.text(vga2_bold_16x32, "k", 32, 112, st7789.WHITE) 
     rick.run(touchpad, channels)
     tft.fill(st7789.BLACK)
+    last_time = (-1, -1)
+
 
 def loop():
     global wlan, battery, touchpad, i2c, spi, rtc, tft
@@ -178,6 +182,7 @@ def loop():
             function = TFT_OFF
             last_action = time_now
             deepsleep()
+
 
 def main():
     setup()
