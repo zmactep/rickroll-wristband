@@ -1,0 +1,48 @@
+36a37,38
+> #include "py/objarray.h"
+> #include "py/binary.h"
+367a370,410
+> STATIC mp_obj_t network_wlan_channel(mp_obj_t self_in, mp_obj_t channel) {
+>     wifi_mode_t mode;
+>     esp_exceptions(esp_wifi_get_mode(&mode));
+>     if ((mode & WIFI_MODE_STA) == 0) {
+>         mp_raise_msg(&mp_type_OSError, MP_ERROR_TEXT("STA must be active"));
+>     }
+> 
+>     mp_int_t wifi_channel = 0;
+>     if (mp_obj_get_int_maybe(channel, &wifi_channel)) {
+>         esp_exceptions(esp_wifi_set_channel(wifi_channel, WIFI_SECOND_CHAN_NONE));
+>     } else {
+>         mp_raise_msg(&mp_type_TypeError, MP_ERROR_TEXT("Channel must be integer value"));
+>     }
+> 
+>     return mp_const_none;
+> }
+> STATIC MP_DEFINE_CONST_FUN_OBJ_2(network_wlan_channel_obj, network_wlan_channel);
+> 
+> STATIC mp_obj_t network_wlan_sendraw(size_t n_args, const mp_obj_t *args) {
+>     wifi_mode_t mode;
+>     esp_exceptions(esp_wifi_get_mode(&mode));
+> 
+>     bool en_sys_seq = 0;
+>     if (n_args == 3) {
+>         en_sys_seq = mp_obj_is_true(args[2]);
+>     }
+> 
+>     mp_obj_array_t* a_ptr = MP_OBJ_TO_PTR(args[1]);
+>     if (a_ptr->typecode != BYTEARRAY_TYPECODE) {
+>         mp_raise_msg(&mp_type_TypeError, MP_ERROR_TEXT("Package must be a bytestring"));
+>     }
+> 
+>     byte* packet = (byte*)a_ptr->items;
+>     size_t packet_len = a_ptr->len;
+> 
+>     int result = esp_wifi_80211_tx(mode & WIFI_MODE_STA ? ESP_IF_WIFI_STA : ESP_IF_WIFI_AP, packet, packet_len, en_sys_seq);
+> 
+>     return mp_obj_new_int(result);
+> }
+> STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(network_wlan_sendraw_obj, 2, 3, network_wlan_sendraw);
+> 
+575a619,620
+>     { MP_ROM_QSTR(MP_QSTR_channel), MP_ROM_PTR(&network_wlan_channel_obj) },
+>     { MP_ROM_QSTR(MP_QSTR_sendraw), MP_ROM_PTR(&network_wlan_sendraw_obj) },
