@@ -70,7 +70,7 @@ def deepsleep():
     disconnect_wlan()
     tft.off()
     esp32.wake_on_ext0(pin=touchpad.touchpad, level=esp32.WAKEUP_ANY_HIGH)
-    machine.deepsleep()
+    machine.deepsleep(1800000)
 
 
 def on_long_press():
@@ -178,7 +178,7 @@ def loop():
             draw_time()
             last_update = time_now
         
-        if time.ticks_diff(time_now, last_action) > 10000:
+        if time.ticks_diff(time_now, last_action) > 10000 and not is_charging:
             function = TFT_OFF
             last_action = time_now
             deepsleep()

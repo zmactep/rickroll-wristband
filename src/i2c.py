@@ -1,7 +1,11 @@
 from machine import Pin, SoftI2C
+from micropython import const
+import utime
 
 
 PCF8563_SLAVE_ADDRESS = const(0x51)
+PCF8563_STAT1_REG = const(0x00)
+PCF8563_STAT2_REG = const(0x01)
 PCF8563_SEC_REG = const(0x02)
 PCF8563_MIN_REG = const(0x03)
 PCF8563_HR_REG = const(0x04)
@@ -9,6 +13,36 @@ PCF8563_DAY_REG = const(0x05)
 PCF8563_WEEKDAY_REG = const(0x06)
 PCF8563_MONTH_REG = const(0x07)
 PCF8563_YEAR_REG = const(0x08)
+PCF8563_SQW_REG = const(0x0D)
+PCF8563_TIMER1_REG = const(0x0E)
+PCF8563_TIMER2_REG = const(0x0F)
+PCF8563_VOL_LOW_MASK = const(0x80)
+PCF8563_minuteS_MASK = const(0x7F)
+PCF8563_HOUR_MASK = const(0x3F)
+PCF8563_WEEKDAY_MASK = const(0x07)
+PCF8563_CENTURY_MASK = const(0x80)
+PCF8563_DAY_MASK = const(0x3F)
+PCF8563_MONTH_MASK = const(0x1F)
+PCF8563_TIMER_CTL_MASK = const(0x03)
+PCF8563_ALARM_AF = const(0x08)
+PCF8563_TIMER_TF = const(0x04)
+PCF8563_ALARM_AIE = const(0x02)
+PCF8563_TIMER_TIE = const(0x01)
+PCF8563_TIMER_TE = const(0x80)
+PCF8563_TIMER_TD10 = const(0x03)
+PCF8563_NO_ALARM = const(0xFF)
+PCF8563_ALARM_ENABLE = const(0x80)
+PCF8563_CLK_ENABLE = const(0x80)
+PCF8563_ALARM_MINUTES = const(0x09)
+PCF8563_ALARM_HOURS = const(0x0A)
+PCF8563_ALARM_DAY = const(0x0B)
+PCF8563_ALARM_WEEKDAY = const(0x0C)
+
+CLOCK_CLK_OUT_FREQ_32_DOT_768KHZ = const(0x80)
+CLOCK_CLK_OUT_FREQ_1_DOT_024KHZ = const(0x81)
+CLOCK_CLK_OUT_FREQ_32_KHZ = const(0x82)
+CLOCK_CLK_OUT_FREQ_1_HZ = const(0x83)
+CLOCK_CLK_HIGH_IMPEDANCE = const(0x0)
 
 
 def i2c_init():
@@ -71,3 +105,155 @@ class RealTimeClock:
         return (self.year(), self.month(), self.date(),
                 self.day(), self.hours(), self.minutes(),
                 self.seconds())
+
+    def __write_byte(self, reg, val):
+        self.bytebuf[0] = val
+        self.i2c.writeto_mem(PCF8563_SLAVE_ADDRESS, reg, self.bytebuf)
+
+    def __dec2bcd(self, dec):
+        tens, units = divmod(dec, 10)
+        return (tens << 4) + units
+
+    def write_all(self, seconds=None, minutes=None, hours=None, day=None,
+                  date=None, month=None, year=None):
+        """Direct write un-none value.
+        Range: seconds [0,59], minutes [0,59], hours [0,23],
+               day [0,6], date [1-31], month [1-12], year [0-99].
+        """
+        if seconds is not None:
+            if seconds < 0 or seconds > 59:
+                raise ValueError('Seconds is out of range [0,59].')
+            seconds_reg = self.__dec2bcd(seconds)
+            self.__write_byte(PCF8563_SEC_REG, seconds_reg)
+
+        if minutes is not None:
+            if minutes < 0 or minutes > 59:
+                raise ValueError('Minutes is out of range [0,59].')
+            self.__write_byte(PCF8563_MIN_REG, self.__dec2bcd(minutes))
+
+        if hours is not None:
+            if hours < 0 or hours > 23:
+                raise ValueError('Hours is out of range [0,23].')
+            # no 12 hour mode
+            self.__write_byte(PCF8563_HR_REG, self.__dec2bcd(hours))
+
+        if year is not None:
+            if year < 0 or year > 99:
+                raise ValueError('Years is out of range [0,99].')
+            self.__write_byte(PCF8563_YEAR_REG, self.__dec2bcd(year))
+
+        if month is not None:
+            if month < 1 or month > 12:
+                raise ValueError('Month is out of range [1,12].')
+            self.__write_byte(PCF8563_MONTH_REG, self.__dec2bcd(month))
+
+        if date is not None:
+            if date < 1 or date > 31:
+                raise ValueError('Date is out of range [1,31].')
+            self.__write_byte(PCF8563_DAY_REG, self.__dec2bcd(date))
+
+        if day is not None:
+            if day < 0 or day > 6:
+                raise ValueError('Day is out of range [0,6].')
+            self.__write_byte(PCF8563_WEEKDAY_REG, self.__dec2bcd(day))
+
+    def set_datetime(self, dt):
+        """Input a tuple such as (year, month, date, day, hours, minutes,
+        seconds).
+        """
+        self.write_all(dt[5], dt[4], dt[3],
+                       dt[6], dt[2], dt[1], dt[0] % 100)
+
+    def write_now(self):
+        """Write the current system time to PCF8563
+        """
+        self.set_datetime(utime.localtime())
+
+    def set_clk_out_frequency(self, frequency=CLOCK_CLK_OUT_FREQ_1_HZ):
+        """Set the clock output pin frequency
+        """
+        self.__write_byte(PCF8563_SQW_REG, frequency)
+
+    def check_if_alarm_on(self):
+        """Read the register to get the alarm enabled
+        """
+        return bool(self.__read_byte(PCF8563_STAT2_REG) & PCF8563_ALARM_AF)
+
+    def turn_alarm_off(self):
+        """Should not affect the alarm interrupt state.
+        """
+        alarm_state = self.__read_byte(PCF8563_STAT2_REG)
+        self.__write_byte(PCF8563_STAT2_REG, alarm_state & 0xf7)
+
+    def clear_alarm(self):
+        """Clear status register.
+        """
+        alarm_state = self.__read_byte(PCF8563_STAT2_REG)
+        alarm_state &= ~(PCF8563_ALARM_AF)
+        alarm_state |= PCF8563_TIMER_TF
+        self.__write_byte(PCF8563_STAT2_REG, alarm_state)
+
+        self.__write_byte(PCF8563_ALARM_MINUTES, 0x80)
+        self.__write_byte(PCF8563_ALARM_HOURS, 0x80)
+        self.__write_byte(PCF8563_ALARM_DAY, 0x80)
+        self.__write_byte(PCF8563_ALARM_WEEKDAY, 0x80)
+
+    def check_for_alarm_interrupt(self):
+        """check for alarm interrupt,is alram int return True
+        """
+        return bool(self.__read_byte(PCF8563_STAT2_REG) & 0x02)
+
+    def enable_alarm_interrupt(self):
+        """Turn on the alarm interrupt output to the interrupt pin
+        """
+        alarm_state = self.__read_byte(PCF8563_STAT2_REG)
+        alarm_state &= ~PCF8563_ALARM_AF
+        alarm_state |= (PCF8563_TIMER_TF | PCF8563_ALARM_AIE)
+        self.__write_byte(PCF8563_STAT2_REG, alarm_state)
+
+    def disable_alarm_interrupt(self):
+        """Turn off the alarm interrupt output to the interrupt pin
+        """
+        alarm_state = self.__read_byte(PCF8563_STAT2_REG)
+        alarm_state &= ~(PCF8563_ALARM_AF | PCF8563_ALARM_AIE)
+        alarm_state |= PCF8563_TIMER_TF
+        self.__write_byte(PCF8563_STAT2_REG, alarm_state)
+
+    def set_daily_alarm(self, hours=None, minutes=None, date=None, weekday=None):
+        """Set alarm match, allow sometimes, minute, day, week
+        """
+        if minutes is None:
+            minutes = PCF8563_ALARM_ENABLE
+            self.__write_byte(PCF8563_ALARM_MINUTES, minutes)
+        else:
+            if minutes < 0 or minutes > 59:
+                raise ValueError('Minutes is out of range [0,59].')
+            self.__write_byte(PCF8563_ALARM_MINUTES,
+                            self.__dec2bcd(minutes) & 0x7f)
+
+        if hours is None:
+            hours = PCF8563_ALARM_ENABLE
+            self.__write_byte(PCF8563_ALARM_HOURS, hours)
+        else:
+            if hours < 0 or hours > 23:
+                raise ValueError('Hours is out of range [0,23].')
+            self.__write_byte(PCF8563_ALARM_HOURS, self.__dec2bcd(
+                hours) & 0x7f)
+
+        if date is None:
+            date = PCF8563_ALARM_ENABLE
+            self.__write_byte(PCF8563_ALARM_DAY, date)
+        else:
+            if date < 1 or date > 31:
+                raise ValueError('date is out of range [1,31].')
+            self.__write_byte(PCF8563_ALARM_DAY, self.__dec2bcd(
+                date) & 0x7f)
+
+        if weekday is None:
+            weekday = PCF8563_ALARM_ENABLE
+            self.__write_byte(PCF8563_ALARM_WEEKDAY, weekday)
+        else:
+            if weekday < 0 or weekday > 6:
+                raise ValueError('weekday is out of range [0,6].')
+            self.__write_byte(PCF8563_ALARM_WEEKDAY, self.__dec2bcd(
+                weekday) & 0x7f)
