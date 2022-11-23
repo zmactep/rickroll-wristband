@@ -20,10 +20,9 @@ def connect_sta(ssid, key, timeout=5):
 
 def connect_ap():
     wlan = network.WLAN(network.AP_IF)
-    wlan.active(False)
-    wlan.config(ssid="WatchNet", key="NeverGonaGive")
-    wlan.config(max_clients=4)
     wlan.active(True)
+    wlan.config(essid="WatchNet", key="NeverGonaGive")
+    wlan.config(max_clients=4)
     return wlan
 
 def connect_wlan(timeout=5):

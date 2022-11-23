@@ -22,7 +22,7 @@ WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", 
 TFT_ON = 0
 TFT_OFF = 1
 
-wlan = connect_wlan()
+wlan = None
 battery = Battery()
 touchpad = Touchpad()
 led = Pin(4, Pin.OUT)
