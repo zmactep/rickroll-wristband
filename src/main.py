@@ -144,16 +144,19 @@ def loop():
     global wlan, battery, touchpad, i2c, spi, rtc, tft
 
     max_functions = 2
-    function = TFT_OFF
+    function = TFT_ON
     is_charging = not battery.is_charging()
 
     last_action = 0
     last_update = 0
+    
+    tft.on()
+
     while True:
         if battery.is_charging() and not is_charging:
             is_charging = on_charge()
             last_action = time.ticks_ms()
-        elif not battery.is_charging:
+        elif not battery.is_charging and is_charging:
             is_charging = on_uncharge()
             last_action = time.ticks_ms()
 
@@ -178,7 +181,7 @@ def loop():
             draw_time()
             last_update = time_now
         
-        if time.ticks_diff(time_now, last_action) > 10000 and not is_charging:
+        if time.ticks_diff(time_now, last_action) > 10000 and not battery.is_charging():
             function = TFT_OFF
             last_action = time_now
             deepsleep()

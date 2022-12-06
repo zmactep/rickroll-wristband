@@ -21,7 +21,8 @@ def connect_sta(ssid, key, timeout=5):
 def connect_ap():
     wlan = network.WLAN(network.AP_IF)
     wlan.active(True)
-    wlan.config(essid="WatchNet", key="NeverGonaGive")
+    wlan.config(authmode=network.AUTH_WPA2_PSK)
+    wlan.config(essid="WatchNet", password="NeverGonaGive")
     wlan.config(max_clients=4)
     return wlan
 
